@@ -23,7 +23,6 @@ class session
                     parseHttpRequest(HttpRequest);
 
                     int child_pid;
-                    cout << "Start fork." << endl;
                     while((child_pid = fork()) < 0){
                         while(waitpid(-1, NULL, WNOHANG) > 0){}
                     }
@@ -34,8 +33,8 @@ class session
                             dup2(socket_.native_handle(), STDOUT_FILENO);
                             cout << "HTTP/1.1 200 OK\r\n";
                             cout.flush();
-
-                            if (execv("./panel.cgi", test_argv) == -1){
+                            if (execv("./sample_console.cgi", test_argv) == -1){
+                            // if (execv(("." + envVars.values[1]).data(), test_argv) == -1){
 
                             }
                             break;
@@ -77,7 +76,7 @@ class server{
                     std::make_shared<session>(std::move(socket))->start();
                 }
 
-                // do_accept();
+                do_accept();
             });
         }
 
