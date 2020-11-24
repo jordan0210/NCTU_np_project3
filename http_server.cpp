@@ -33,13 +33,14 @@ class session
                             dup2(socket_.native_handle(), STDOUT_FILENO);
                             cout << "HTTP/1.1 200 OK\r\n";
                             cout.flush();
-                            if (execv("./sample_console.cgi", test_argv) == -1){
-                            // if (execv(("." + envVars.values[1]).data(), test_argv) == -1){
+
+                            if (execv(("." + envVars.values[1]).data(), test_argv) == -1){
 
                             }
                             break;
                         default:
                             socket_.close();
+                            waitpid(child_pid, NULL, 0);
                     }
                 }
             });
@@ -122,7 +123,6 @@ void parseHttpRequest(string HttpRequest){
         startIndex = endIndex + 1;
         endIndex = Line1.find(' ', startIndex);
         envVars.values[2] = Line1.substr(startIndex, endIndex - startIndex);
-        setenv("QUERY_STRING", (Line1.substr(startIndex, endIndex - startIndex)).data(), 1);
     } else {
         endIndex = Line1.find(' ', startIndex);
         envVars.values[1] = Line1.substr(startIndex, endIndex - startIndex);

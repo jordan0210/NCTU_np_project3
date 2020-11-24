@@ -1,15 +1,103 @@
-#include <iostream>
-#include <string.h>
+#include "console.h"
 
-using namespace std;
+class client{
+    public:
+        client(boost::asio::io_context& io_context,
+            const tcp::resolver::results_type& endpoints,
+            string ID)
+            : io_context_(io_context), socket_(io_context), ID_(ID){
 
-typedef struct requestData{
-    string url;
-    string port;
-    string testfile;
-}requestData;
+            do_connect(endpoints);
+        }
 
-requestData requestDatas[5];
+        void close(){
+            boost::asio::post(io_context_, [this]() { socket_.close(); });
+        }
+
+    private:
+        void do_connect(const tcp::resolver::results_type& endpoints){
+            boost::asio::async_connect(socket_, endpoints,
+                [this](boost::system::error_code ec, tcp::endpoint){
+
+                if (!ec){
+                    bzero(data_, sizeof(data_));
+                    string path = "./test_case/" + requestDatas[stoi(ID_)].testfile;
+                    int fd_testfile = open(path.data(), O_RDONLY);
+                    dup2(fd_testfile, STDIN_FILENO);
+                    do_read();
+                }
+            });
+        }
+
+        void do_read(){
+            socket_.async_read_some(boost::asio::buffer(data_, max_length),
+                [this](boost::system::error_code ec, std::size_t length){
+
+                if (!ec){
+                    string Msg = data_;
+                    bzero(data_, sizeof(data_));
+                    // cerr << "***********************************************\n";
+                    // cerr << Msg << "|\n";
+                    // cerr << "***********************************************\n";
+
+                    send_shell(ID_, Msg);
+                    if ((int)Msg.find('%', 0) < 0){
+                        do_read();
+                    } else {
+                        string command;
+                        getline(cin, command);
+                        command += "\n";
+                        send_command(ID_, command);
+                        do_write(command);
+                    }
+                }
+            });
+
+        }
+
+        void do_write(string origin_Msg){
+            const char *Msg = origin_Msg.c_str();
+            char unit;
+            boost::asio::async_write(socket_, boost::asio::buffer(Msg, sizeof(unit)*origin_Msg.length()),
+                [this](boost::system::error_code ec, std::size_t /*length*/){
+
+                if (!ec){
+                    do_read();
+                }
+            });
+        }
+
+        boost::asio::io_context& io_context_;
+        tcp::socket socket_;
+        string ID_;
+        enum { max_length = 1024 };
+        char data_[max_length];
+};
+
+int main(){
+    string QUERY_STRING = getenv("QUERY_STRING");
+    parse_QUERY_STRING(QUERY_STRING);
+    send_default_HTML();
+
+    try{
+        for (int i=0; i<5; i++){
+            if (requestDatas[i].url.length() == 0)
+                break;
+            send_dafault_table(to_string(i), (requestDatas[i].url + ":" + requestDatas[i].port));
+
+            boost::asio::io_context io_context;
+
+            tcp::resolver resolver(io_context);
+            auto endpoints = resolver.resolve(requestDatas[i].url.data(), requestDatas[i].port.data());
+            client c(io_context, endpoints, to_string(i));
+
+            io_context.run();
+        }
+    } catch (exception& e){
+        cerr << "Exception: " << e.what() << "\n";
+    }
+    return 0;
+}
 
 void parse_QUERY_STRING(string &QUERY_STRING){
     QUERY_STRING = QUERY_STRING + "&";
@@ -98,37 +186,31 @@ void send_dafault_table(string index, string Msg){
 }
 
 void send_command(string index, string Msg){
-    cout << "<script>document.getElementById('s" + index + "').innerHTML += '" << Msg << "';</script>";
-    cout.flush();
-}
-
-void send_shell(string index, string Msg){
+    refactor(Msg);
     cout << "<script>document.getElementById('s" + index + "').innerHTML += '<b>" << Msg << "</b>';</script>";
     cout.flush();
 }
 
-int main(){
-    setenv("QUERY_STRING", "h0=nplinux1.cs.nctu.edu.tw&p0=1234&f0=t1.txt&h1=nplinux2.cs.nctu.edu.tw&p1=5678&f1=t2.txt&h2=nplinux3.cs.nctu.edu.tw&p2=1234&f2=t3.txt&h3=nplinux4.cs.nctu.edu.tw&p3=1234&f3=t4.txt&h4=nplinux5.cs.nctu.edu.tw&p4=1234&f4=t5.txt", 1);
-    string QUERY_STRING = getenv("QUERY_STRING");
-    parse_QUERY_STRING(QUERY_STRING);
-    send_default_HTML();
-    for (int i=0; i<5; i++){
-        if (requestDatas[i].url.length() == 0)
-            break;
-        send_dafault_table(to_string(i), (requestDatas[i].url + ":" + requestDatas[i].port));
-        int child_pid;
-        while((child_pid = fork()) < 0){
-			while(waitpid(-1, NULL, WNOHANG) > 0){}
-		}
-		switch (child_pid){
-			case 0 :
-                int clientSocket = socket(AF_INET, SOCK_STREAM, 0);
-                struct sockaddr_in serverAddr;
-                socklen_t addr_size;
+void send_shell(string index, string Msg){
+    refactor(Msg);
+    cout << "<script>document.getElementById('s" + index + "').innerHTML += '" << Msg << "';</script>";
+    cout.flush();
+}
 
-                serverAddr.sin_family = AF_INET;
-                serverAddr.sin_port = htons(stoi(requestDatas[i].port));
-                serverAddr.sin_addr.s_addr = inet_addr(requestDatas[i].url);
-                memset(serverAddr.sin_zero, '\0', sizeof serverAddr.sin_zero);
+void refactor(string &Msg){
+    string returnMsg = "";
+    for (int i=0; i<(int)Msg.length(); i++){
+        if (Msg[i] == '\n'){
+            returnMsg += "<br>";
+        } else if (Msg[i] == '\r'){
+            returnMsg += "";
+        } else if (Msg[i] == '\''){
+            returnMsg += "\\'";
+        }
+
+        else {
+            returnMsg += Msg[i];
+        }
     }
+    Msg = move(returnMsg);
 }
