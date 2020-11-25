@@ -30,6 +30,8 @@ class session
                     switch (child_pid){
                         case 0:
                             setHttpEnv();
+                            setenv("REMOTE_ADDR", socket_.remote_endpoint().address().to_string().c_str(), 1);
+                            setenv("REMOTE_PORT", to_string(socket_.remote_endpoint().port()).c_str(), 1);
                             dup2(socket_.native_handle(), STDOUT_FILENO);
                             cout << "HTTP/1.1 200 OK\r\n";
                             cout.flush();

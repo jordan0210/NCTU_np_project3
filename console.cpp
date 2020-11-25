@@ -10,9 +10,9 @@ class client{
             do_connect(endpoints);
         }
 
-        void close(){
-            boost::asio::post(io_context_, [this]() { socket_.close(); });
-        }
+        // void close(){
+        //     boost::asio::post(io_context_, [this]() { socket_.close(); });
+        // }
 
     private:
         void do_connect(const tcp::resolver::results_type& endpoints){
@@ -24,6 +24,7 @@ class client{
                     string path = "./test_case/" + requestDatas[stoi(ID_)].testfile;
                     int fd_testfile = open(path.data(), O_RDONLY);
                     dup2(fd_testfile, STDIN_FILENO);
+                    close(fd_testfile);
                     do_read();
                 }
             });
@@ -34,22 +35,24 @@ class client{
                 [this](boost::system::error_code ec, std::size_t length){
 
                 if (!ec){
+                    data_[length] = '\0';
                     string Msg = data_;
                     bzero(data_, sizeof(data_));
-                    // cerr << "***********************************************\n";
-                    // cerr << Msg << "|\n";
-                    // cerr << "***********************************************\n";
 
                     send_shell(ID_, Msg);
-                    if ((int)Msg.find('%', 0) < 0){
-                        do_read();
-                    } else {
-                        string command;
-                        getline(cin, command);
-                        command += "\n";
-                        send_command(ID_, command);
-                        do_write(command);
+                    if (length != 0){
+                        if ((int)Msg.find('%', 0) < 0){
+                            do_read();
+                        } else {
+                            string command;
+                            getline(cin, command);
+                            command += "\n";
+                            send_command(ID_, command);
+                            do_write(command);
+                        }
                     }
+                } else {
+                    socket_.close();
                 }
             });
 
@@ -59,10 +62,15 @@ class client{
             const char *Msg = origin_Msg.c_str();
             char unit;
             boost::asio::async_write(socket_, boost::asio::buffer(Msg, sizeof(unit)*origin_Msg.length()),
-                [this](boost::system::error_code ec, std::size_t /*length*/){
+                [this, &origin_Msg](boost::system::error_code ec, std::size_t /*length*/){
 
                 if (!ec){
-                    do_read();
+                    if ((int)origin_Msg.find("exit", 0) >){
+                        do_read();
+                    } else {
+                        string test = "-------Find exit.-------";
+                        send_command(ID_, test);
+                    }
                 }
             });
         }
@@ -82,16 +90,26 @@ int main(){
     try{
         for (int i=0; i<5; i++){
             if (requestDatas[i].url.length() == 0)
-                break;
+                continue;
             send_dafault_table(to_string(i), (requestDatas[i].url + ":" + requestDatas[i].port));
 
             boost::asio::io_context io_context;
-
             tcp::resolver resolver(io_context);
             auto endpoints = resolver.resolve(requestDatas[i].url.data(), requestDatas[i].port.data());
             client c(io_context, endpoints, to_string(i));
 
-            io_context.run();
+            int child_pid;
+            while((child_pid = fork()) < 0){
+                while(waitpid(-1, NULL, WNOHANG) > 0){}
+            }
+
+            switch (child_pid){
+                case 0:
+                    io_context.run();
+                    return 0;
+                default:
+                    waitpid(-1, NULL, WNOHANG);
+            }
         }
     } catch (exception& e){
         cerr << "Exception: " << e.what() << "\n";
@@ -186,6 +204,8 @@ void send_dafault_table(string index, string Msg){
 }
 
 void send_command(string index, string Msg){
+    // cmdCount++;
+    // Msg = to_string(cmdCount) + " : " + Msg;
     refactor(Msg);
     cout << "<script>document.getElementById('s" + index + "').innerHTML += '<b>" << Msg << "</b>';</script>";
     cout.flush();
