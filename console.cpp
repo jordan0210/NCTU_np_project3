@@ -65,11 +65,10 @@ class client{
                 [this, &origin_Msg](boost::system::error_code ec, std::size_t /*length*/){
 
                 if (!ec){
-                    if ((int)origin_Msg.find("exit", 0) >){
+                    if (origin_Msg != "exit\n"){
                         do_read();
                     } else {
-                        string test = "-------Find exit.-------";
-                        send_command(ID_, test);
+                        socket_.close();
                     }
                 }
             });
@@ -88,6 +87,8 @@ int main(){
     send_default_HTML();
 
     try{
+        // boost::asio::io_context io_context;
+        // vector<client> clients;
         for (int i=0; i<5; i++){
             if (requestDatas[i].url.length() == 0)
                 continue;
@@ -97,7 +98,7 @@ int main(){
             tcp::resolver resolver(io_context);
             auto endpoints = resolver.resolve(requestDatas[i].url.data(), requestDatas[i].port.data());
             client c(io_context, endpoints, to_string(i));
-
+            // clients.push_back(c);
             int child_pid;
             while((child_pid = fork()) < 0){
                 while(waitpid(-1, NULL, WNOHANG) > 0){}
@@ -204,8 +205,6 @@ void send_dafault_table(string index, string Msg){
 }
 
 void send_command(string index, string Msg){
-    // cmdCount++;
-    // Msg = to_string(cmdCount) + " : " + Msg;
     refactor(Msg);
     cout << "<script>document.getElementById('s" + index + "').innerHTML += '<b>" << Msg << "</b>';</script>";
     cout.flush();

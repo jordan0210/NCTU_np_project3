@@ -7,6 +7,7 @@
 #include <iostream>
 #include <string.h>
 #include <sys/wait.h>
+#include <vector>
 
 using boost::asio::ip::tcp;
 using namespace std;
@@ -18,7 +19,7 @@ typedef struct requestData{
 }requestData;
 
 requestData requestDatas[5];
-int cmdCount = 0;
+
 void parse_QUERY_STRING(string &QUERY_STRING);
 
 void send_default_HTML();

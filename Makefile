@@ -9,5 +9,8 @@ part1:
 	$(CXX) http_server.cpp http_server.h -o http_server $(CXX_INCLUDE_PARAMS) $(CXX_LIB_PARAMS) $(CXXFLAGS)
 	$(CXX) console.cpp console.h -o console.cgi $(CXX_INCLUDE_PARAMS) $(CXX_LIB_PARAMS) $(CXXFLAGS)
 
+part2:
+	$(CXX) cgi_server.cpp cgi_server.h -o cgi_server $(CXX_INCLUDE_PARAMS) $(CXX_LIB_PARAMS) $(CXXFLAGS)
+
 clean:
 	rm -f http_server

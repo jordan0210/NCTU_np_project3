@@ -5,7 +5,7 @@ class session
     public:
         session(tcp::socket socket)
             : socket_(std::move(socket)){
-            }
+        }
 
         void start(){
             do_read();
