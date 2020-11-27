@@ -4,10 +4,8 @@
 #include <utility>
 #include <boost/asio.hpp>
 
-#include <iostream>
+#include <fstream>
 #include <string.h>
-#include <sys/wait.h>
-#include <vector>
 
 using boost::asio::ip::tcp;
 using namespace std;

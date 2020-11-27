@@ -4,9 +4,8 @@
 #include <utility>
 #include <boost/asio.hpp>
 
-#include <iostream>
+#include <fstream>
 #include <string.h>
-#include <sys/wait.h>
 
 using boost::asio::ip::tcp;
 using namespace std;
@@ -47,7 +46,7 @@ typedef struct requestData{
 
 typedef struct clientData{
     boost::asio::io_context io_context;
-    auto endpoints;
+    // auto endpoints;
     string ID;
     string testfile;
 }clientData;

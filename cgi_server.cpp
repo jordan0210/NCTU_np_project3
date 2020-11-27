@@ -77,33 +77,50 @@ class server{
         tcp::acceptor acceptor_;
 };
 
-class client
-    : public std::enable_shared_from_this<client>{
-    public:
-        client()
-            : io_context_(io_context), socket_(io_context), ID_(ID){
+class client : public std::enable_shared_from_this<client>{
+    private:
+        tcp::resolver resolver;
+        tcp::socket socket;
+        boost::asio::io_context& io_context;
+        boost::asio::ip::tcp::resolver::results_type endpoints;
+        string ID;
+        ifstream fin;
+        enum { max_length = 4096 };
+        char data_[max_length];
 
-            do_connect(endpoints);
+    public:
+        client(boost::asio::io_context& io_context,
+            string ID)
+            : resolver(io_context), socket(io_context), io_context(io_context), ID(ID){}
+
+        void start(){
+            do_resolve();
         }
 
-        // void close(){
-        //     boost::asio::post(io_context_, [this]() { socket_.close(); });
-        // }
-
     private:
-        void do_connect(const tcp::resolver::results_type& endpoints){
+        void do_resolve(){
             auto self(shared_from_this());
-            boost::asio::async_connect(socket_, endpoints,
-                [this, self](boost::system::error_code ec, tcp::endpoint){
+            // tcp::resolver::query q{requestDatas[stoi(ID)].url, requestDatas[stoi(ID)].port};
+            resolver.async_resolve(requestDatas[stoi(ID)].url, requestDatas[stoi(ID)].port,
+                [this, self](const boost::system::error_code &ec,
+                    const boost::asio::ip::tcp::resolver::results_type results){
+                    if (!ec){
+                        endpoints = results;
+                        do_connect();
+                    }
+                }
+            );
+        }
+
+        void do_connect(){
+            auto self(shared_from_this());
+            boost::asio::async_connect(socket, endpoints,
+                [this, self](const boost::system::error_code &ec, tcp::endpoint ed){
 
                 if (!ec){
-                    // bzero(data_, sizeof(data_));
-                    cerr << "connect success.\n";
-                    string path = "./test_case/" + requestDatas[stoi(ID_)].testfile;
-                    int fd_testfile = open(path.data(), O_RDONLY);
-                    cerr << "file open success.\n";
-                    dup2(fd_testfile, STDIN_FILENO);
-                    close(fd_testfile);
+                    bzero(data_, sizeof(data_));
+                    string path = "./test_case/" + requestDatas[stoi(ID)].testfile;
+                    fin.open(path.data());
                     do_read();
                 }
             });
@@ -111,57 +128,48 @@ class client
 
         void do_read(){
             auto self(shared_from_this());
-            cerr << "Start reading.\n";
-            socket_.async_read_some(boost::asio::buffer(data_, max_length),
+            socket.async_read_some(boost::asio::buffer(data_, max_length),
                 [this, self](boost::system::error_code ec, std::size_t length){
-                cerr << "Success reading.\n";
+
                 if (!ec){
-                    // cerr << "Success reading.\n";
                     data_[length] = '\0';
                     string Msg = data_;
-                    // bzero(data_, sizeof(data_));
+                    bzero(data_, sizeof(data_));
 
-                    send_shell(ID_, Msg);
+                    send_shell(ID, Msg);
                     if (length != 0){
                         if ((int)Msg.find('%', 0) < 0){
                             do_read();
                         } else {
                             string command;
-                            getline(cin, command);
+                            getline(fin, command);
                             command += "\n";
-                            send_command(ID_, command);
+                            send_command(ID, command);
                             do_write(command);
                         }
                     }
                 } else {
-                    socket_.close();
+                    socket.close();
                 }
             });
-            cerr << "End reading.\n";
         }
 
         void do_write(string origin_Msg){
             auto self(shared_from_this());
             const char *Msg = origin_Msg.c_str();
             char unit;
-            boost::asio::async_write(socket_, boost::asio::buffer(Msg, sizeof(unit)*origin_Msg.length()),
-                [this, self, &origin_Msg](boost::system::error_code ec, std::size_t /*length*/){
+            boost::asio::async_write(socket, boost::asio::buffer(Msg, sizeof('\n')*origin_Msg.length()),
+                [this, self, origin_Msg](boost::system::error_code ec, std::size_t /*length*/){
 
                 if (!ec){
-                    if (origin_Msg != "exit\n"){
+                    if (origin_Msg.compare("exit\n")){
                         do_read();
                     } else {
-                        socket_.close();
+                        socket.close();
                     }
                 }
             });
         }
-
-        boost::asio::io_context& io_context_;
-        tcp::socket socket_;
-        string ID_;
-        enum { max_length = 1024 };
-        char data_[max_length];
 };
 
 int main(int argc, char* argv[]){
@@ -282,41 +290,14 @@ int consoleCgi(){
     send_default_HTML();
 
     try{
-        vector<clientData> clientDatas;
-        vector<shared_ptr<client>> clients;
-        vector<thread> threads;
+        boost::asio::io_context io_context;
         for (int i=0; i<5; i++){
-            if (requestDatas[i].url.length() == 0)
+            if (requestDatas[i].url == "")
                 break;
             send_dafault_table(to_string(i), (requestDatas[i].url + ":" + requestDatas[i].port));
-
-            clientData newClientData;
-            tcp::resolver resolver(io_contexts[i]);
-            newClientData.endpoints = resolver.resolve(requestDatas[i].url.data(), requestDatas[i].port.data());
-            newClientData.ID = to_string(i);
-            newClientData.testfile = requestDatas[i].testfile;
-            clientDatas.push_back(newClientData);
+            make_shared<client>(io_context, to_string(i))->start();
         }
-        clientData *cD = clientDatas;
-        for (int i=0; i<clientDatas.size(); i++){
-
-            clients.emplace_back(new client(cd));
-
-        }
-        //     // boost::asio::io_context io_context;
-        //     tcp::resolver resolver(io_contexts[i]);
-        //     auto endpoints = resolver.resolve(requestDatas[i].url.data(), requestDatas[i].port.data());
-        //     // client c(io_contexts[i], endpoints, to_string(i));
-        //     IDs[i] = to_string(i);
-        //     clients.emplace_back(io_contexts[i], endpoints, IDs[i]);
-        //     threads.emplace_back([&io_contexts, i](){
-        //         cerr << "thread " << i << " start.\n";
-        //         io_contexts[i].run();
-        //     });
-        // }
-        // for(int i=0; i<2; i++){
-        //     threads[i].join();
-        // }
+        io_context.run();
     } catch (exception& e){
         cerr << "Exception: " << e.what() << "\n";
     }
@@ -396,7 +377,7 @@ void send_default_HTML(){
     <html lang=\"en\">\
         <head>\
             <meta charset=\"UTF-8\" />\
-            <title>NP Project 3 Sample Console</title>\
+            <title>NP Project 3 Console</title>\
             <link\
                 rel=\"stylesheet\"\
                 href=\"https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/css/bootstrap.min.css\"\
