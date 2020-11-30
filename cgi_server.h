@@ -32,6 +32,7 @@ typedef struct environmentVars{
 
 EnvVars envVars;
 char **test_argv;
+bool acceptable = true;
 
 void parseHttpRequest(string HttpRequest);
 

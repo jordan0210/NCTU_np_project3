@@ -10,7 +10,7 @@ part1:
 	$(CXX) console.cpp console.h -o console.cgi $(CXX_INCLUDE_PARAMS) $(CXX_LIB_PARAMS) $(CXXFLAGS)
 
 part2:
-	$(CXX) cgi_server.cpp cgi_server.h -o cgi_server $(CXX_INCLUDE_PARAMS) $(CXX_LIB_PARAMS) $(CXXFLAGS)
+	$(CXX) cgi_server.cpp cgi_server.h -o cgi_server -lws2_32 -lwsock32 -std=c++14
 
 clean:
 	rm -f http_server

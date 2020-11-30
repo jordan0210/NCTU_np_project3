@@ -1,0 +1,7 @@
+ls -al bin . |2
+removetag test.html |1
+number > temp.html
+number temp.html
+who
+name user4
+exit

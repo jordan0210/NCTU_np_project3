@@ -29,7 +29,9 @@ class client : public std::enable_shared_from_this<client>{
                     if (!ec){
                         endpoints = results;
                         do_connect();
-                    }
+                    } else {
+                    socket.close();
+                }
                 }
             );
         }
@@ -44,6 +46,8 @@ class client : public std::enable_shared_from_this<client>{
                     string path = "./test_case/" + requestDatas[stoi(ID)].testfile;
                     fin.open(path.data());
                     do_read();
+                } else {
+                    socket.close();
                 }
             });
         }
@@ -220,6 +224,12 @@ void refactor(string &Msg){
             returnMsg += "";
         } else if (Msg[i] == '\''){
             returnMsg += "\\'";
+        } else if (Msg[i] == '<'){
+            returnMsg += "&lt;";
+        } else if (Msg[i] == '>'){
+            returnMsg += "&gt;";
+        } else if (Msg[i] == '&'){
+            returnMsg += "&amp;";
         }
 
         else {

@@ -18,7 +18,9 @@ class session
                 [this, self](boost::system::error_code ec, std::size_t length){
 
                 if (!ec){
+                    data_[length] = '\0';
                     string HttpRequest = data_;
+                    bzero(data_, sizeof(data_));
 
                     parseHttpRequest(HttpRequest);
 
@@ -27,19 +29,23 @@ class session
                         while(waitpid(-1, NULL, WNOHANG) > 0){}
                     }
 
+                    string temp_URI, path;
                     switch (child_pid){
                         case 0:
                             setHttpEnv();
+                            setenv("SERVER_ADDR", socket_.local_endpoint().address().to_string().c_str(), 1);
                             setenv("REMOTE_ADDR", socket_.remote_endpoint().address().to_string().c_str(), 1);
-                            setenv("REMOTE_PORT", to_string(socket_.remote_endpoint().port()).c_str(), 1);
+                            setenv("REMOTE_PORT", to_string(htons(socket_.remote_endpoint().port())).c_str(), 1);
                             dup2(socket_.native_handle(), STDOUT_FILENO);
-                            cout << "HTTP/1.1 200 OK\r\n";
-                            cout.flush();
+                            cout << "HTTP/1.1 200 OK\r\n" << flush;
 
-                            if (execv(("." + envVars.values[1]).data(), test_argv) == -1){
+                            socket_.close();
+                            temp_URI = envVars.values[1] + "?";
+                            path = "." + temp_URI.substr(0, temp_URI.find('?', 0));
+                            if (execv(path.data(), test_argv) == -1){
 
                             }
-                            break;
+                            exit(0);
                         default:
                             socket_.close();
                             waitpid(child_pid, NULL, 0);
@@ -125,6 +131,7 @@ void parseHttpRequest(string HttpRequest){
         startIndex = endIndex + 1;
         endIndex = Line1.find(' ', startIndex);
         envVars.values[2] = Line1.substr(startIndex, endIndex - startIndex);
+        envVars.values[1] = envVars.values[1] + "?" + envVars.values[2];
     } else {
         endIndex = Line1.find(' ', startIndex);
         envVars.values[1] = Line1.substr(startIndex, endIndex - startIndex);
