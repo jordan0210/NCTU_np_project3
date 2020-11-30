@@ -9,6 +9,7 @@ void session::do_read(){
     socket_.async_read_some(boost::asio::buffer(data_, max_length),
         [this, self](boost::system::error_code ec, std::size_t length){
 
+<<<<<<< HEAD
         if (!ec){
             string HttpRequest = data_;
 
@@ -22,10 +23,35 @@ void session::do_read(){
                 consoleCgi(self);
             }
             socket_.close();
+=======
+    // private:
+        void do_read(){
+            auto self(shared_from_this());
+            socket_.async_read_some(boost::asio::buffer(data_, max_length),
+                [this, self](boost::system::error_code ec, std::size_t length){
+
+                if (!ec){
+                    string HttpRequest = data_;
+
+                    parseHttpRequest(HttpRequest);
+                    string temp_URI = envVars.values[1] + "?";
+                    string URI = temp_URI.substr(0, temp_URI.find('?', 0));
+
+                    if (URI == "/panel.cgi"){
+                        panelCgi();
+                        acceptable = true;
+                    } else if (URI == "/console.cgi"){
+                        consoleCgi();
+                        acceptable = true;
+                    }
+                }
+            });
+>>>>>>> 8b36c68c14bee91c0228d3157523c6cb66401a3d
         }
     });
 }
 
+<<<<<<< HEAD
 void session::do_write(string origin_Msg){
     auto self(shared_from_this());
     const char *Msg = origin_Msg.c_str();
@@ -34,9 +60,23 @@ void session::do_write(string origin_Msg){
 
         if (!ec){
             // do_read();
+=======
+        void do_write(string origin_Msg){
+            auto self(shared_from_this());
+            const char *Msg = origin_Msg.c_str();
+            boost::asio::async_write(socket_, boost::asio::buffer(Msg, sizeof('\n')*origin_Msg.length()),
+                [this, self](boost::system::error_code ec, std::size_t /*length*/){
+
+                if (!ec){
+                    // do_read();
+                }
+            });
+>>>>>>> 8b36c68c14bee91c0228d3157523c6cb66401a3d
         }
     });
 }
+
+std::shared_ptr<session> globalSession;
 
 class server{
     public:
@@ -49,8 +89,10 @@ class server{
         void do_accept(){
             acceptor_.async_accept(
                 [this](boost::system::error_code ec, tcp::socket socket){
-                if (!ec){
-                    std::make_shared<session>(std::move(socket))->start();
+                if (!ec && acceptable){
+                    acceptable = false;
+                    globalSession = std::make_shared<session>(std::move(socket));
+                    globalSession->start();
                 }
 
                 do_accept();
@@ -107,6 +149,7 @@ class client
                 if (!ec){
                     memset(data_, '\0', sizeof(data_));
                     string path = "./test_case/" + requestDatas[stoi(ID)].testfile;
+                    cerr << path << endl;
                     fin.open(path.data());
                     do_read();
                 } else {
@@ -186,7 +229,11 @@ int main(int argc, char* argv[]){
   return 0;
 }
 
+<<<<<<< HEAD
 void panelCgi(shared_ptr<session> Session){
+=======
+void panelCgi(){
+>>>>>>> 8b36c68c14bee91c0228d3157523c6cb66401a3d
     string Msg =  "HTTP/1.1 200 OK\r\nContent-type: text/html\r\n\r\n";// << flush;
 
     string host_menu = "";
@@ -275,12 +322,23 @@ void panelCgi(shared_ptr<session> Session){
             </form>\
         </body>\
     </html>";// << flush;
+<<<<<<< HEAD
     Session->do_write(Msg);
 }
 
 int consoleCgi(shared_ptr<session> Session){
     parse_QUERY_STRING(envVars.values[2]);
     send_default_HTML(Session);
+=======
+    globalSession->do_write(Msg);
+    (globalSession->socket_).close();
+}
+
+int consoleCgi(){
+    cerr << envVars.values[2] << endl;
+    parse_QUERY_STRING(envVars.values[2]);
+    send_default_HTML();
+>>>>>>> 8b36c68c14bee91c0228d3157523c6cb66401a3d
 
     try{
         // boost::asio::io_context io_context;
@@ -364,7 +422,11 @@ void parse_QUERY_STRING(string &QUERY_STRING){
     }
 }
 
+<<<<<<< HEAD
 void send_default_HTML(shared_ptr<session> Session){
+=======
+void send_default_HTML(){
+>>>>>>> 8b36c68c14bee91c0228d3157523c6cb66401a3d
     string Msg = "HTTP/1.1 200 OK\r\nContent-type: text/html\r\n\r\n";
     Msg += "\
     <!DOCTYPE html>\
@@ -416,13 +478,18 @@ void send_default_HTML(shared_ptr<session> Session){
             </table>\
         </body>\
     </html>";
+<<<<<<< HEAD
     Session->do_write(Msg);
+=======
+    globalSession->do_write(Msg);
+>>>>>>> 8b36c68c14bee91c0228d3157523c6cb66401a3d
     // cout.flush();
 }
 
 void send_dafault_table(shared_ptr<session> Session, string index, string Msg){
     Msg = "<th scope=\\\"col\\\">" + Msg + "</th>";
     Msg = "<script>document.getElementById('tableHead').innerHTML += '" + Msg + "';</script>";
+<<<<<<< HEAD
     Session->do_write(Msg);
     // cout.flush();
     Msg = "<td><pre id=\\\"s" + index + "\\\" class=\\\"mb-0\\\"></pre></td>";
@@ -435,13 +502,31 @@ void send_command(shared_ptr<session> Session, string index, string Msg){
     refactor(Msg);
     Msg = "<script>document.getElementById('s" + index + "').innerHTML += '<b>" + Msg + "</b>';</script>";
     Session->do_write(Msg);
+=======
+    globalSession->do_write(Msg);
+    // cout.flush();
+    Msg = "<td><pre id=\\\"s" + index + "\\\" class=\\\"mb-0\\\"></pre></td>";
+    Msg = "<script>document.getElementById('tableBody').innerHTML += '" + Msg + "';</script>";
+    globalSession->do_write(Msg);
+    // cout.flush();
+}
+
+void send_command(string index, string Msg){
+    refactor(Msg);
+    Msg = "<script>document.getElementById('s" + index + "').innerHTML += '<b>" + Msg + "</b>';</script>";
+    globalSession->do_write(Msg);
+>>>>>>> 8b36c68c14bee91c0228d3157523c6cb66401a3d
     // cout.flush();
 }
 
 void send_shell(shared_ptr<session> Session, string index, string Msg){
     refactor(Msg);
     Msg = "<script>document.getElementById('s" + index + "').innerHTML += '" + Msg + "';</script>";
+<<<<<<< HEAD
     Session->do_write(Msg);
+=======
+    globalSession->do_write(Msg);
+>>>>>>> 8b36c68c14bee91c0228d3157523c6cb66401a3d
     // cout.flush();
 }
 

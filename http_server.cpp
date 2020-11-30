@@ -48,7 +48,7 @@ class session
                             exit(0);
                         default:
                             socket_.close();
-                            waitpid(child_pid, NULL, 0);
+                            waitpid(child_pid, NULL, WNOHANG);
                     }
                 }
             });
