@@ -10,9 +10,29 @@
 using boost::asio::ip::tcp;
 using namespace std;
 
-void panelCgi();
+boost::asio::io_context io_context;
 
-int consoleCgi();
+class session
+    : public std::enable_shared_from_this<session>{
+    public:
+        session(tcp::socket socket) : socket_(std::move(socket)){}
+
+        void start();
+
+        void do_read();
+
+        void do_write(string origin_Msg);
+
+        tcp::socket socket_;
+        enum { max_length = 1024 };
+        char data_[max_length];
+        int clientNo = 0;
+        int exitClient = 0;
+};
+
+void panelCgi(shared_ptr<session> Session);
+
+int consoleCgi(shared_ptr<session> Session);
 
 //http_server
 typedef struct environmentVars{
@@ -32,7 +52,6 @@ typedef struct environmentVars{
 
 EnvVars envVars;
 char **test_argv;
-bool acceptable = true;
 
 void parseHttpRequest(string HttpRequest);
 
@@ -56,12 +75,12 @@ requestData requestDatas[5];
 
 void parse_QUERY_STRING(string &QUERY_STRING);
 
-void send_default_HTML();
+void send_default_HTML(shared_ptr<session> Session);
 
-void send_dafault_table(string index, string Msg);
+void send_dafault_table(shared_ptr<session> Session, string index, string Msg);
 
-void send_command(string index, string Msg);
+void send_command(shared_ptr<session> Session, string index, string Msg);
 
-void send_shell(string index, string Msg);
+void send_shell(shared_ptr<session> Session, string index, string Msg);
 
 void refactor(string &Msg);
